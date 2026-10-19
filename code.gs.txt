@@ -1,0 +1,76 @@
+
+function createGreenNestDrafts() {
+  const SHEET_NAME = 'Email_Drafts';
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(SHEET_NAME);
+
+  if (!sheet) {
+    throw new Error('Sheet "Email_Drafts" was not found.');
+  }
+
+  const rows = sheet.getRange('A2:F6').getDisplayValues();
+
+  const myEmail = Session.getEffectiveUser()
+    .getEmail()
+    .trim()
+    .toLowerCase();
+
+  if (!myEmail) {
+    throw new Error(
+      'Could not identify your Google account email.'
+    );
+  }
+
+  // Validate all five emails before creating drafts.
+  rows.forEach((row, index) => {
+    const [, , recipient, subject, preview, body] = row;
+
+    if (!subject.trim() || !body.trim()) {
+      throw new Error(
+        `Row ${index + 2}: subject and body are required.`
+      );
+    }
+
+    if (
+      !recipient.trim() ||
+      recipient.trim().toLowerCase() !== myEmail
+    ) {
+      throw new Error(
+        `Row ${index + 2}: recipient must be your own Gmail address.`
+      );
+    }
+  });
+
+  // Creates drafts only. It never sends emails.
+  rows.forEach((row) => {
+    const [, , , subject, preview, body] = row;
+
+    const htmlBody =
+      '<div style="color:#666;font-size:12px;">' +
+      escapeHtml_(preview) +
+      '</div><div style="white-space:pre-wrap;">' +
+      escapeHtml_(body) +
+      '</div>';
+
+    GmailApp.createDraft(
+      myEmail,
+      subject.trim(),
+      body,
+      { htmlBody: htmlBody }
+    );
+  });
+
+  SpreadsheetApp.getUi().alert(
+    'Five GreenNest drafts created. No emails were sent.'
+  );
+}
+
+function escapeHtml_(text) {
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
